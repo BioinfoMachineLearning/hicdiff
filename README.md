@@ -76,7 +76,7 @@ python train.py -u [boolean_value] -e [epoch_number] -b [batch_size] -n [cell_nu
 ## Optional Parameters:
 
 ```bash
--u, --unspervised    # set the model you want to use, '1' means gan that you will use unsupervsed way to train your model, '0' indicates you will use supervised way to train your model.
+-u, --unspervised    # set the model you want to use, '1' means you will use unsupervsed way to train your model, '0' indicates you will use supervised way to train your model.
 -e, --epoch          # How many epoches that you want to train.
 -b, --batch_size     # The batch size you want to use in you model.
 -n, --celln          # Cell number in the dataset you want to feed in you model.
