@@ -62,7 +62,7 @@ If you want to retrain your dataset, YOU can run HiCDiff by the following comman
 
 ```bash
 # First step check the envirment whetther it is active, if not active the envirment 
-conda activate HiCDiff.yml
+conda activate HiCDiff
 
 # Second step run the training scripts
 python train.py -u [boolean_value] -e [epoch_number] -b [batch_size] -n [cell_number] -l [cell_line] -s [sigma]
