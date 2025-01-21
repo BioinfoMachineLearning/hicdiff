@@ -50,7 +50,7 @@ If you want to evaluate the model to get the PREDICTED result, YOU can run HiCDi
 
 ```bash
 # First step check the envirment whetther it is active, if not active the envirment 
-conda activate HiCDiff.yml
+conda activate HiCDiff
 
 # Second step run the training scripts
 python inference.py -u [boolean_value] -b [batch_size] -n [cell_number] -l [cell_line] -s [sigma]
