@@ -133,7 +133,7 @@ class GSE130711Module(pl.LightningDataModule):
         outdir = self.dirname+"/Constraints"
         file_inter = glob.glob(str(root) + '/Datasets/Human/' + 'cell'+str(self.cellNo)+'_'+r'*.mcool')
         filepath = file_inter[0]
-        print(f'------------the file_path for the cellline if {file_inter}')
+        print(f'------------the file_path for the current cellline is: {file_inter[0]}')
         AllRes = cooler.fileops.list_coolers(filepath)
         print(AllRes)
 
@@ -372,7 +372,7 @@ class GSE131811Module(pl.LightningDataModule):
         outdir = self.dirname+"/Constraints"
         file_inter = glob.glob(str(root) + '/Datasets/Drosophila/' + 'cell'+str(self.cellNo) + '_' + r'*.mcool')
         filepath = file_inter[0]
-        print(f'------------the file_path for the cellline if {file_inter}')
+        print(f'------------the file_path for the current cellline is: {file_inter[0]}')
         AllRes = cooler.fileops.list_coolers(filepath)
         print(AllRes)
 
