@@ -25,7 +25,7 @@ root = pyrootutils.setup_root(
 def create_parser():
     parser = argparse.ArgumentParser(description = 'HiCDiff works for single-cell HI-C data denoising !!!')
     parser.add_argument('-u', '--unspervised', type = bool, default = True, help = 'True means you will use unsupervsed way to train your model, False indicates you will use supervised way to train your model')
-    parser.add_argument('-', '--batch_size', type = int, default = 64, help = 'Batch size for embeddings generation.')
+    parser.add_argument('-b', '--batch_size', type = int, default = 64, help = 'Batch size for embeddings generation.')
     parser.add_argument('-e', '--epoch', type = int, default = 400, help = 'Number of epochs used for embeddings generation')
     parser.add_argument('-l', '--celline', type = str, default = "Human",
                         help = "Which cell line you want to choose for your dataset, default is 'Human', you should choose one name in ['Human', 'Dros']")
