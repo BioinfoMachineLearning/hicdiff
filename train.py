@@ -12,7 +12,10 @@ import wandb  # the logger
 import argparse
 
 from processdata.PrepareData_linear import GSE130711Module as GSE130711_cond # the datasets
+from processdata.PrepareData_linear import GSE131811Module as GSE131811_cond # the datasets
 from processdata.PrepareData_pure_noise import GSE130711Module as GSE130711
+from processdata.PrepareData_pure_noise import GSE131811Module as GSE131811
+
 
 
 root = pyrootutils.setup_root(
