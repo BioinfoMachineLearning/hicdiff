@@ -231,8 +231,9 @@ class GSE130711Module(pl.LightningDataModule):
             subprocess.run("mkdir -p "+self.dirname+"/Constraints", shell = True)
 
         outdir = self.dirname+"/Constraints"
-        file_inter = glob.glob(str(root) + '/Datasets/Human/single/' + 'cell'+str(self.cellNo)+r'*.mcool')
+        file_inter = glob.glob(str(root) + '/Datasets/Human/' + 'cell'+str(self.cellNo)+'_'+r'*.mcool')
         filepath = file_inter[0]
+        print(f'------------the file_path for the current cellline is: {file_inter[0]}')
         AllRes = cooler.fileops.list_coolers(filepath)
         print(AllRes)
 
@@ -399,6 +400,229 @@ class GSE130711Module(pl.LightningDataModule):
 
     def setup(self, stage = None):
         if stage in list(range(1, 23)):
+            self.test_set = self.gse131811Dataset(full = True, tvt = stage, res = self.res, piece_size = self.piece_size,  dir = self.dirname)
+        if stage == 'fit':
+            self.train_set = self.gse131811Dataset(full = True, tvt = 'train', res = self.res, piece_size = self.piece_size,  dir = self.dirname)
+            self.val_set = self.gse131811Dataset(full = True, tvt = 'val', res = self.res, piece_size = self.piece_size,  dir = self.dirname)
+        if stage == 'test':
+            self.test_set = self.gse131811Dataset(full = True, tvt = 'test', res = self.res, piece_size = self.piece_size, dir = self.dirname)
+
+    def train_dataloader(self):
+        return DataLoader(self.train_set, self.batch_size, num_workers = 12, shuffle=True)
+
+    def val_dataloader(self):
+        return DataLoader(self.val_set, self.batch_size, num_workers = 12)
+
+    def test_dataloader(self):
+        return DataLoader(self.test_set, self.batch_size, num_workers = 12)
+
+
+class GSE131811Module(pl.LightningDataModule):
+    def __init__(self,
+                 batch_size = 64,
+                 res = 40000,
+                 piece_size = 64,
+                 cell_line = 'Dros',
+                 cell_No = 1,
+                 sigma_0 = 0.1,   # sigma_0 in range(0, 1) the bigger value the more noisy data
+                 deg ='deno',
+                 channel = 1,
+                 ): #64 is used for unet_model
+        super( ).__init__()
+        self.batch_size = batch_size
+        self.res = res
+        self.step = piece_size  # here the parameter should be modified
+        self.piece_size = piece_size
+        self.cellLine = cell_line
+        self.cellNo = cell_No
+        self.dirname = str(root) + "/DataFull" + "/DataFull_"+self.cellLine+"_cell"+str(self.cellNo)+"_"+str(self.res)+"_"+deg+"_"+str(sigma_0)
+        self.sigma_0 = sigma_0
+        self.deg = deg
+        self.channel = channel
+
+    def extract_constraint_mats(self):
+        if not os.path.exists(self.dirname+"/Constraints"):
+            subprocess.run("mkdir -p "+self.dirname+"/Constraints", shell = True)
+
+        outdir = self.dirname+"/Constraints"
+        file_inter = glob.glob(str(root) + '/Datasets/Drosophila/' + 'cell'+str(self.cellNo) + '_' + r'*.mcool')
+        filepath = file_inter[0]
+        print(f'------------the file_path for the current cellline is: {file_inter[0]}')
+        AllRes = cooler.fileops.list_coolers(filepath)
+        print(AllRes)
+
+        c = cooler.Cooler(filepath + '::resolutions/' + str(self.res))
+        c1 = c.chroms()[:]  # c1 chromesize information in the list format
+        print(c1.loc[0, 'name'], c1.index)
+        # print('\n')
+
+        for i in c1.index:
+            print(i, c1.loc[i, 'name'])
+            chro = c1.loc[i, 'name']  # chro is str
+            # print(type(chro))
+            c2 = c.matrix(balance = True, as_pixels = True, join = True).fetch(chro)
+            c3 = c2[['start1', 'start2', 'count']]
+            # print(c2)
+            c2 = c2[['start1', 'start2', 'balanced']]
+            c2.fillna(0, inplace = True)
+            # print(c2)
+            if i == 6:
+                pass
+            else:
+                c2.to_csv(outdir+'/chrom_' + str(i + 1) + '_' + str(self.res) + '.txt', sep = '\t', index = False, header = False) # balanced
+                c3.to_csv(outdir+'/chrom_' + str(i + 1) + '_' + 'count' + '.txt', sep = '\t', index = False, header = False)  # raw count
+
+    def extract_create_numpy(self):
+        if not os.path.exists(self.dirname+"/Full_Mats"):
+            subprocess.run("mkdir -p "+self.dirname+"/Full_Mats", shell = True)
+
+        globs = glob.glob(self.dirname+"/Constraints/chrom_1_" + str(self.res) + ".txt")
+        if len(globs) == 0:
+            print("wait.. first we need to extract mats and double check the mats")
+            #  input("Press Enter to continue...")
+            self.extract_constraint_mats()
+        for i in range(1, 7):
+            target = loadBothConstraints(
+                self.dirname+"/Constraints/chrom_" + str(i) + "_" + str(self.res) + ".txt",
+                self.dirname+"/Constraints/chrom_" + str(i) + "_" + "count" + ".txt",
+                self.res)
+
+            target = np.float32(target)
+
+            print("the second time to convert float64 to float32")
+            print(target.dtype)
+
+            if i == 5:
+                print("The special chrom need to pay attention to it")
+                print(target.shape)  # the chrom_5, its' mat is (26, 26), so the splits' number = 0;
+                #print(target)
+
+            np.save(self.dirname+"/Full_Mats/GSE131811_mat_full_chr_" + str(i) + "_" + str(self.res), target)
+
+    def split_numpy(self):
+        if not os.path.exists(self.dirname+"/Splits"):
+            subprocess.run("mkdir -p "+self.dirname+"/Splits", shell = True)
+
+        globs = glob.glob(self.dirname+"/Full_Mats/GSE131811_mat_full_chr_1_" + str(self.res) + ".npy")
+        if len(globs) == 0:
+            self.extract_create_numpy()
+
+        for i in range(1, 7):
+            target = splitPieces(self.dirname+"/Full_Mats/GSE131811_mat_full_chr_" + str(i) + "_" + str(self.res) + ".npy",
+                                    self.piece_size, self.step, resol = self.res)
+
+            np.save(
+                self.dirname+"/Splits/GSE131811_full_chr_" + str(i) + "_" + str(self.res) + "_piece_" + str(self.piece_size),
+                target)
+
+            if (i == 5):
+                print("====chrom: {}, splits shape: {} and splits number: {}".format(i, target.shape, len(target)))
+                print("The target is: {}".format(target))
+
+            # below to get the noisy data 
+            data_t = torch.from_numpy(target)
+            b = target.shape[0]
+            t = torch.randint(0, self.timestep, (b,), device=data_t.device).long()
+            data = q_sample(data_t, t=t, beta_schedule = self.beta_shedule, timesteps = self.timestep)
+            data = data.numpy()  # here is float64, i.e., longecause the original range(0, 2) should convert to range(-1, 1)
+            np.save(self.dirname + "/Splits/GSE131811_noisy_chr_" + str(i) + "_" + str(self.res) + "_piece_" + str(self.piece_size), data)
+          
+
+    def prepare_data(self):
+        print("Preparing the Preparations ...")
+        globs = glob.glob(
+            self.dirname+"/Splits/GSE131811_full_chr_*_" + str(self.res) + "_piece_" + str(self.piece_size) + str(".npy"))
+        if len(globs) > 5:
+            print("Ready to go")
+        else:
+            print(".. wait, first we need to split the mats")
+            self.split_numpy()
+
+    class gse131811Dataset(Dataset):
+        def __init__(self, full, tvt, res, piece_size, dir):
+            self.piece_size = piece_size
+            self.tvt = tvt
+            self.res = res
+            self.full = full
+            self.dir = dir
+
+            if full == True:
+                if tvt in list(range(1, 7)):
+                    self.chros = [tvt]
+                if tvt == "train":
+                    self.chros = [5]
+                elif tvt == "val":
+                    self.chros = [2] #
+                elif tvt == "test":
+                    self.chros = [1, 2, 3, 4, 5, 6] #
+
+                self.target = np.load(
+                    self.dir+"/Splits/GSE131811_full_chr_" + str(self.chros[0]) + "_" + str(self.res) + "_piece_" + str(
+                        self.piece_size) + ".npy")
+
+                self.data = np.load(
+                    self.dir + "/Splits/GSE131811_noisy_chr_" + str(self.chros[0]) + "_" + str(self.res) + "_piece_" + str(
+                        self.piece_size) + ".npy")
+
+                self.info = np.repeat(self.chros[0], self.target.shape[0])
+
+                for c, chro in enumerate(self.chros[1:]):
+                    temp = np.load(
+                        self.dir+"/Splits/GSE131811_full_chr_" + str(chro) + "_" + str(self.res) + "_piece_" + str(
+                            self.piece_size) + ".npy")
+                    print(self.target.shape, temp.shape, len(temp), chro)
+                    # input("Press Enter to continue...")
+                    if len(temp) == 0:
+                        pass
+                    else:
+                        self.target = np.concatenate((self.target, temp))
+
+                    # collect the low input data for supervised learning
+                    temp = np.load(
+                        self.dir + "/Splits/GSE131811_noisy_chr_" + str(chro) + "_" + str(self.res) + "_piece_" + str(
+                            self.piece_size) + ".npy")
+                    if len(temp) == 0:
+                        pass
+                    else:
+                        self.data = np.concatenate((self.data, temp))
+                        self.info = np.concatenate((self.info, np.repeat(chro, temp.shape[0])))
+
+                self.target = torch.from_numpy(self.target)  # target is float
+                self.data = torch.from_numpy(self.data)  # data is float
+                self.info = torch.from_numpy(self.info)
+
+                print("========================= the stage of training =====================\n", tvt)
+                print(self.target.shape)
+
+            else:
+                if tvt == "train":
+                    self.chros = [5]
+                elif tvt == "val":
+                    self.chros = [1]
+                elif tvt == "test":
+                    self.chros = [2]
+                self.target = np.load(
+                    self.dir+"/Splits/GSE131811_full_chr_" + str(self.chros[0]) + "_" + str(self.res) + "_piece_" + str(
+                        self.piece_size) + ".npy")
+                self.data = np.load(
+                    self.dir + "/Splits/GSE131811_noisy_chr_" + str(self.chros[0]) + "_" + str(self.res) + "_piece_" + str(
+                        self.piece_size) + ".npy")
+                self.info = np.repeat(self.chros[0], self.target.shape[0])
+
+                self.target = torch.from_numpy(self.target)
+                self.data = torch.from_numpy(self.data)
+                self.info = torch.from_numpy(self.info)
+
+                print(self.target.shape)
+
+        def __len__(self):
+            return self.target.shape[0]
+
+        def __getitem__(self, idx):
+            return self.data[idx], self.target[idx], self.info[idx]
+
+    def setup(self, stage = None):
+        if stage in list(range(1, 7)):
             self.test_set = self.gse131811Dataset(full = True, tvt = stage, res = self.res, piece_size = self.piece_size,  dir = self.dirname)
         if stage == 'fit':
             self.train_set = self.gse131811Dataset(full = True, tvt = 'train', res = self.res, piece_size = self.piece_size,  dir = self.dirname)
