@@ -13,8 +13,8 @@ import argparse
 
 from processdata.PrepareData_linear import GSE130711Module as GSE130711_cond # the datasets
 from processdata.PrepareData_linear import GSE131811Module as GSE131811_cond # the datasets
-from processdata.PrepareData_pure_noise import GSE130711Module as GSE130711
-from processdata.PrepareData_pure_noise import GSE131811Module as GSE131811
+from processdata.PrepareData_linear_sing import GSE130711Module as GSE130711_s # the datasets
+from processdata.PrepareData_linear_sing import GSE131811Module as GSE131811_s # the datasets
 
 
 
@@ -71,10 +71,10 @@ class HiCDiff:
         #os.makedirs(self.out_dirM, exist_ok=True)
 
         # prepare training and valid dataset
-        if not self.condition:
-            DataModule = GSE130711_cond(batch_size=batch_size, res=res, cell_line=cell_Line, cell_No=cellNo, sigma_0=self.sigma, deg=self.deg)
+        if self.cell_Line == 'Human':
+            DataModule = GSE130711_s(batch_size=batch_size, res=res, cell_line=cell_Line, cell_No=cellNo, sigma_0=self.sigma, deg=self.deg)
         else:
-            DataModule = GSE130711(batch_size = batch_size, res = res, piece_size = piece_s, cell_line = cell_Line, cell_No = cellNo)
+            DataModule = GSE131811_s(batch_size = batch_size, res = res, piece_size = piece_s, cell_line = cell_Line, cell_No = cellNo)
 
         DataModule.prepare_data()
         DataModule.setup(stage='fit')
@@ -119,10 +119,7 @@ class HiCDiff:
             train_bar = tqdm(self.train_loader)
             for batch_data in train_bar:  # target is the pure image without
 
-                if not self.condition:
-                    data, target, _, info = batch_data
-                else:
-                    data, target, info = batch_data
+                data, target, _, info = batch_data
                 batch_size = data.shape[0]
                 run_result['nsamples'] += batch_size
                 data = data.to(self.device)
@@ -148,11 +145,7 @@ class HiCDiff:
             batch_id = 0
             with torch.no_grad():
                 for batch_data in valid_bar:   # data is the pure image without noise
-
-                    if not self.condition:
-                        data, target, _, info = batch_data
-                    else:
-                        data, target, info = batch_data
+                    data, target, _, info = batch_data
                     batch_size = data.shape[0]
                     valid_result['nsamples'] += batch_size
                     data = data.to(self.device)
